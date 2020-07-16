@@ -196,7 +196,7 @@
         :visible.sync="dialogVisible"
         width="80%">
         <div>
-          <el-form :model="emp" :rules="rules" ref="empForm">
+          <el-form :model="emp" :rules="rules" ref="emp">
             <el-row>
               <el-col :span="6">
                 <el-form-item label="姓名:" prop="name">
@@ -296,14 +296,19 @@
               </el-col>
               <el-col :span="6">
                 <el-form-item label="所属部门:" prop="departmentId">
-                  <el-select v-model="emp.departmentId" placeholder="职称" size="mini" style="width: 150px;">
-                    <el-option
-                      v-for="item in joblevels"
-                      :key="item.id"
-                      :label="item.name"
-                      :value="item.id">
-                    </el-option>
-                  </el-select>
+                  <el-popover
+                    placement="right"
+                    title="所属部门"
+                    width="200"
+                    v-model="popVisible"
+                    trigger="manual">
+                    <el-tree default-expand-all :data="depts" :props="defaultProps"
+                             @node-click="handleNodeClick"></el-tree>
+                    <div slot="reference"
+                         style="width: 150px;display: inline-flex;font-size: 13px;border: 1px solid #dedede;height: 26px;border-radius: 5px;cursor: pointer;align-items: center;padding-left: 8px;box-sizing: border-box"
+                         @click="showDepView">{{inputDepName}}
+                    </div>
+                  </el-popover>
                 </el-form-item>
               </el-col>
               <el-col :span="7">
@@ -359,7 +364,7 @@
                   </el-date-picker>
                 </el-form-item>
               </el-col>
-              <el-col :span="6">
+              <el-col :span="5">
                 <el-form-item label="转正日期:" prop="conversionTime">
                   <el-date-picker
                     v-model="emp.conversionTime"
@@ -376,19 +381,23 @@
                   <el-date-picker
                     v-model="emp.beginContract"
                     size="mini"
+                    :picker-options="pickerOptionsStart"
                     type="date"
                     value-format="yyyy-MM-dd"
                     style="width: 130px;"
+                    @change="changeEnd"
                     placeholder="合同起始日期">
                   </el-date-picker>
                 </el-form-item>
               </el-col>
-              <el-col :span="6">
+              <el-col :span="7">
                 <el-form-item label="合同终止日期:" prop="endContract">
                   <el-date-picker
                     v-model="emp.endContract"
+                    :picker-options="pickerOptionsEnd"
                     size="mini"
                     type="date"
+                    @change="changeStart"
                     value-format="yyyy-MM-dd"
                     style="width: 150px;"
                     placeholder="合同终止日期">
@@ -425,30 +434,48 @@
         </div>
         <span slot="footer" class="dialog-footer">
     <el-button @click="dialogVisible = false">取 消</el-button>
-    <el-button type="primary">确 定</el-button>
+    <el-button type="primary" @click="addEmp">确 定</el-button>
   </span>
       </el-dialog>
     </div>
 </template>
 
 <script>
-    export default {
+
+
+  export default {
         name: "emp-basic",
         data(){
+          var validatePass = (rule, value, callback) => {
+            if (value === 'hanhan') {
+              callback(new Error('你真的是个憨憨'));
+            }else{
+              callback();
+            }
+          };
           return {
             loading:false,
+            inputDepName:'',
             emps:[],
             total:0,
             page:1,
             size:10,
             keyword:'',
+            pickerOptionsStart:{},
+            pickerOptionsEnd:{},
             dialogVisible:false,
+            popVisible:false,
             nations: [],
             joblevels: [],
+            depts:[],
             title:'',
             politicsstatus: [],
             positions: [],
             tiptopDegrees: ['本科', '大专', '硕士', '博士', '高中', '初中', '小学', '其他'],
+            defaultProps: {
+              children: 'children',
+              label: 'name'
+            },
             emp: {
               name: "javaboy",
               gender: "男",
@@ -479,7 +506,7 @@
               workAge: null
             },
             rules: {
-              name: [{required: true, message: '请输入用户名', trigger: 'blur'}],
+              name: [{required: true, message: '请输入用户名', trigger: 'blur'}, {validator: validatePass, trigger: 'blur'}],
               gender: [{required: true, message: '请输入性别', trigger: 'blur'}],
               birthday: [{required: true, message: '请输入出生日期', trigger: 'blur'}],
               idCard: [{required: true, message: '请输入身份证号码', trigger: 'blur'}, {
@@ -496,7 +523,11 @@
                 message: '邮箱格式不正确',
                 trigger: 'blur'
               }],
-              phone: [{required: true, message: '请输入电话号码', trigger: 'blur'}],
+              phone: [{required: true, message: '请输入电话号码', trigger: 'blur'},{
+                pattern: /^1[34578]\d{9}$/,
+                message: '电话号码格式不正确',
+                trigger: 'blur'
+              }],
               address: [{required: true, message: '请输入员工地址', trigger: 'blur'}],
               departmentId: [{required: true, message: '请输入部门名称', trigger: 'blur'}],
               jobLevelId: [{required: true, message: '请输入职称', trigger: 'blur'}],
@@ -523,6 +554,59 @@
           this.initPositions();
       },
       methods:{
+        addEmp(){
+          console.log("添加新员工");
+          this.$refs['emp'].validate(valid => {
+            if(valid){
+              this.postRequest("/employee/basic/",this.emp).then(resp => {
+                  if (resp){
+                    this.dialogVisible = false;
+                    this.initemps();
+                  }
+                }
+              )
+            }else {
+              this.$message.error("请将信息填写完整")}
+          })
+        },
+        changeStart() {
+          if (!this.emp.endContract) {
+            this.pickerOptionsStart = {
+              disabledDate: {}
+            }
+            return
+          }
+          this.pickerOptionsStart = Object.assign({}, this.pickerOptionsStart, {
+            // 可通过箭头函数的方式访问到this
+            disabledDate: (time) => {
+              var times = ''
+              times = time.getTime() > Date.parse(this.emp.endContract);
+               return times
+            }
+          })
+        },
+        // 开始时间 控制结束时间
+        changeEnd() {
+          if (!this.emp.beginContract) {
+            this.pickerOptionsEnd = {
+              disabledDate: {}
+            }
+            return
+          }
+          this.pickerOptionsEnd = Object.assign({}, this.pickerOptionsEnd, {
+            disabledDate: (time) => {
+              return time.getTime() < (Date.parse(this.emp.beginContract) - 1 * 24 *60 *60 * 1000 )
+            }
+          })
+        },
+        showDepView() {
+          this.popVisible = !this.popVisible
+        },
+        handleNodeClick(data) {
+          this.inputDepName = data.name;
+          this.emp.departmentId = data.id;
+          this.popVisible = !this.popVisible
+        },
         sizeChange(currentSize){
           this.size = currentSize;
           this.initemps();
@@ -551,6 +635,47 @@
         showAddEmpView(){
           this.dialogVisible = true;
           this.title = "添加员工";
+          this.getMaxWorkId();
+          this.emptyEmp();
+        },
+        getMaxWorkId(){
+          this.getRequest('employee/basic/maxWorkId').then(resp=>{
+            if(resp){
+              this.emp.workID = resp.obj;
+              console.log(this.emp.workID)
+            }
+          })
+        },
+        emptyEmp() {
+          this.emp = {
+            name: "",
+            gender: "",
+            birthday: "",
+            idCard: "",
+            wedlock: "",
+            nationId: 1,
+            nativePlace: "",
+            politicId: 13,
+            email: "",
+            phone: "",
+            address: "",
+            departmentId: null,
+            jobLevelId: 9,
+            posId: 29,
+            engageForm: "",
+            tiptopDegree: "",
+            specialty: "",
+            school: "",
+            beginDate: "",
+            workID: "",
+            contractTerm: 2,
+            conversionTime: "",
+            notworkDate: null,
+            beginContract: "",
+            endContract: "",
+            workAge: null
+          }
+          this.inputDepName = '';
         },
         initData() {
           if (!window.sessionStorage.getItem("nations")) {
@@ -582,6 +707,16 @@
             })
           } else {
             this.politicsstatus = JSON.parse(window.sessionStorage.getItem("politicsstatus"));
+          }
+          if (!window.sessionStorage.getItem("depts")) {
+            this.getRequest('/system/basic/department/').then(resp => {
+              if (resp) {
+                this.depts = resp;
+                window.sessionStorage.setItem("depts", JSON.stringify(resp));
+              }
+            })
+          } else {
+            this.depts = JSON.parse(window.sessionStorage.getItem("depts"));
           }
         },
       }
