@@ -18,6 +18,7 @@
             :data="emps"
             stripe
             border
+            @selection-change="handleSelectionChange"
             v-loading="loading"
             element-loading-text="正在加载..."
             element-loading-spinner="el-icon-loading"
@@ -180,11 +181,13 @@
               </template>
             </el-table-column>
           </el-table>
-          <div style="justify-content:flex-end;display: flex">
+          <div style="justify-content:space-between;display: flex">
+            <el-button type="danger" size="mini" @click="batchDelete">批量删除</el-button>
           <el-pagination
             background
             @size-change="sizeChange"
             @current-change="currentChange"
+            :current-page.sync="page"
             layout="sizes, prev, pager, next, jumper, ->, total, slot"
             :total="total">
           </el-pagination>
@@ -462,6 +465,7 @@
             size:10,
             keyword:'',
             pickerOptionsStart:{},
+            selectedData:[],
             pickerOptionsEnd:{},
             dialogVisible:false,
             popVisible:false,
@@ -555,6 +559,7 @@
       },
       methods:{
         addEmp(){
+          if(!this.emp.id){
           console.log("添加新员工");
           this.$refs['emp'].validate(valid => {
             if(valid){
@@ -568,6 +573,74 @@
             }else {
               this.$message.error("请将信息填写完整")}
           })
+          }else{
+            this.$refs['emp'].validate(valid => {
+              if(valid){
+                this.putRequest("/employee/basic/",this.emp).then(resp => {
+                    if (resp){
+                      this.dialogVisible = false;
+                      this.initemps();
+                    }
+                  }
+                )
+              }else {
+                this.$message.error("请将信息填写完整")}
+            })
+          }
+        },
+        deleteEmp(data){
+          this.$confirm('此操作将永久删除' + data.name + ', 是否继续?', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            this.deleteRequest("/employee/basic/"+data.id).then(resp=>{
+              if(resp){
+                this.initemps();
+              }
+            })
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: '已取消删除'
+            });
+          });
+        },
+        showEditEmpView(data){
+          this.emp = data;
+          this.title = '编辑员工信息';
+          this.dialogVisible = true;
+          this.inputDepName = data.department.name;
+          console.log(data.id)
+        },
+        batchDelete(){
+          console.log(this.selectedData);
+          if(this.selectedData.length >0){
+          this.$confirm('此操作将永久删除' + this.selectedData.length + '条数据, 是否继续?', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            let url= "/employee/basic/?";
+            this.selectedData.forEach(item =>{
+              url += 'ids=' + item.id + '&';
+            })
+            this.deleteRequest(url).then(resp=>{
+              if(resp){
+                this.selectedData = [];
+                this.initemps();
+              }
+            })
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: '已取消删除'
+            });
+          });
+          }
+        },
+        handleSelectionChange(data){
+          this.selectedData = data;
         },
         changeStart() {
           if (!this.emp.endContract) {

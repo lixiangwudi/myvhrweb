@@ -91,8 +91,8 @@
           },
             deleteDep(data) {
             console.log(data)
-              if (data.parent) {
-                this.$message.error("部门删除失败");
+              if (data.isparent) {
+                this.$message.error("父部门删除失败");
               } else {
                 this.$confirm('此操作将永久删除【' + data.name + '】部门, 是否继续?', '提示', {
                   confirmButtonText: '确定',
@@ -101,7 +101,7 @@
                 }).then(() => {
                   this.deleteRequest("/system/basic/department/"+data.id).then(resp=>{
                     if (resp) {
-                      this.removeDepFromDeps(null,this.depts,data.id);
+                      this.initDeps();
                     }
                   })
                 }).catch(() => {
@@ -116,41 +116,12 @@
               if(data.name){
                 this.putRequest("/system/basic/department/",this.dep).then(resp =>{
                   if(resp){
-                    this.addDep2Deps(this.depts, resp);
                     this.dep.name = '';
                     this.dialogVisible = false;
                     this.initDeps();
                   }
                 })
               }
-          },
-          removeDepFromDeps(p,depts, id) {
-            for(let i=0;i<depts.length;i++){
-              let d = depts[i];
-              if (d.id == id) {
-                depts.splice(i, 1);
-                if (depts.length == 0) {
-                  p.parent = false;
-                }
-                return;
-              }else{
-                this.removeDepFromDeps(d,d.children, id);
-              }
-            }
-          },
-          addDep2Deps(deps, dep) {
-            for (let i = 0; i < deps.length; i++) {
-              let d = deps[i];
-              if (d.id == dep.parentId) {
-                d.children = d.children.concat(dep);
-                if (d.children.length > 0) {
-                  d.parent = true;
-                }
-                return;
-              } else {
-                this.addDep2Deps(d.children, dep);
-              }
-            }
           },
           filterNode(value, data) {
             console.log(data)
