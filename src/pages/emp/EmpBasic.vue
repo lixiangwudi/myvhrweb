@@ -8,7 +8,7 @@
         </div>
         <div>
           <el-button type="success"><i class="fa fa-level-up" style="margin-right:3px"></i>导入数据</el-button>
-          <el-button type="success"><i class="fa fa-level-down" style="margin-right:3px"></i>导出数据</el-button>
+          <el-button type="success" @click="exportData"><i class="fa fa-level-down" style="margin-right:3px"></i>导出数据</el-button>
           <el-button type="primary" icon="el-icon-plus" @click="showAddEmpView">添加员工</el-button>
         </div>
       </div>
@@ -605,6 +605,9 @@
               message: '已取消删除'
             });
           });
+        },
+        exportData() {
+          window.open('/employee/basic/export', '_parent');
         },
         showEditEmpView(data){
           this.emp = data;
